@@ -1,0 +1,359 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{subfig}
+\usepackage{float}
+
+\begin{document}
+
+\title{From-Scratch Implementation of Naive Bayes and SVM Classifiers for Motor Fault Detection}
+
+\author{\IEEEauthorblockN{Fatima Sohail}
+\IEEEauthorblockA{\textit{Department of Data Science} \\
+\textit{GIFT University}, Gujranwala, Pakistan \\
+231980004@gift.edu.pk}
+}
+
+\maketitle
+
+\begin{abstract}
+Motor fault detection is essential for preventing unexpected failures in industrial environments. This study presents complete from-scratch implementations of Naive Bayes and Support Vector Machine algorithms for classifying motor health conditions using current signature analysis. We evaluated both algorithms on binary classification (healthy vs. faulty) and multi-class problems (14 fault types). Using 1,000 time-domain features extracted from motor current signals, our experiments show that SVM slightly outperforms Naive Bayes in binary classification, while both models face challenges in the complex multi-class scenario due to overlapping fault signatures.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Naive Bayes, Support Vector Machine, Motor Fault Detection, Current Signature Analysis, Multi-Class Classification
+\end{IEEEkeywords}
+
+\section{Introduction}
+Industrial motors are critical components in manufacturing and production systems. When they fail unexpectedly, the consequences include production downtime, safety hazards, and significant financial losses. Motor Current Signature Analysis (MCSA) provides a non-invasive way to monitor motor health by analyzing patterns in the electrical current they draw during operation.
+
+Traditional machine learning algorithms like Naive Bayes and Support Vector Machines offer interpretable approaches to fault classification. Naive Bayes relies on probability theory and assumes feature independence, making it computationally efficient. SVM, on the other hand, finds optimal decision boundaries by maximizing the margin between classes, which can handle more complex patterns.
+
+In this project, I implemented both algorithms completely from scratch to understand their inner workings. The goal was to compare their performance on two tasks: a simpler binary problem distinguishing healthy motors from faulty ones, and a more challenging 14-class problem identifying specific fault types like bearing defects, rotor bar issues, and misalignment.
+
+\section{Algorithm Implementation}
+
+\subsection{Naive Bayes Classifier}
+Naive Bayes works by calculating the probability of each class given the observed features, then selecting the class with the highest probability. Despite its "naive" assumption that features are independent, it often performs surprisingly well in practice.
+
+For binary classification, the algorithm calculates:
+\begin{equation}
+P(y=c|x) = \frac{P(x|y=c) \cdot P(y=c)}{P(x)}
+\end{equation}
+
+Since we're dealing with continuous features, I used Gaussian distributions to model the likelihood:
+\begin{equation}
+P(x_i|y=c) = \frac{1}{\sqrt{2\pi\sigma_c^2}} \exp\left(-\frac{(x_i-\mu_c)^2}{2\sigma_c^2}\right)
+\end{equation}
+
+Algorithm 1 shows the training process. During prediction, we calculate log probabilities to avoid numerical underflow issues.
+
+\begin{algorithm}
+\caption{Naive Bayes Training}
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} Training data $X_{train}$, labels $y_{train}$
+\FOR{each class $c$ in unique classes}
+\STATE $X_c \gets$ samples where $y_{train} = c$
+\STATE Calculate $\mu_c \gets$ mean of $X_c$ for each feature
+\STATE Calculate $\sigma_c^2 \gets$ variance of $X_c$ for each feature
+\STATE Calculate $P(c) \gets$ proportion of class $c$ in training data
+\STATE Store parameters: $(\mu_c, \sigma_c^2, P(c))$
+\ENDFOR
+\STATE \textbf{Return:} Stored parameters for all classes
+\end{algorithmic}
+\end{algorithm}
+
+For multi-class problems, the same approach extends naturally - we just calculate probabilities for all 14 classes instead of 2.
+
+\subsection{Support Vector Machine}
+SVM aims to find a hyperplane that separates classes with maximum margin. For binary classification with classes +1 and -1, we want to find weights $w$ and bias $b$ that satisfy:
+\begin{equation}
+y_i(w^T x_i + b) \geq 1 \text{ for all } i
+\end{equation}
+
+The optimization objective combines margin maximization with a penalty for misclassifications:
+\begin{equation}
+\min_{w,b} \frac{1}{2}||w||^2 + C\sum_i \max(0, 1-y_i(w^T x_i + b))
+\end{equation}
+
+I implemented this using gradient descent as shown in Algorithm 2. For each training sample, we check if it violates the margin constraint and update weights accordingly.
+
+\begin{algorithm}
+\caption{SVM Training (Gradient Descent)}
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} $X_{train}$, $y_{train}$, learning rate $\alpha$, epochs
+\STATE Initialize $w \gets 0$, $b \gets 0$
+\STATE Convert labels to $\{-1, +1\}$
+\FOR{each epoch}
+\FOR{each training sample $(x_i, y_i)$}
+\IF{$y_i(w^T x_i + b) < 1$}
+\STATE $w \gets w - \alpha(2\lambda w - y_i x_i)$
+\STATE $b \gets b - \alpha(-y_i)$
+\ELSE
+\STATE $w \gets w - \alpha(2\lambda w)$
+\ENDIF
+\ENDFOR
+\ENDFOR
+\STATE \textbf{Return:} Final weights $w$ and bias $b$
+\end{algorithmic}
+\end{algorithm}
+
+For the 14-class problem, I used the One-vs-Rest strategy, training 14 separate binary SVMs where each classifier learns to distinguish one specific fault type from all others.
+
+\section{Experimental Setup}
+
+\subsection{Dataset and Preprocessing}
+The dataset contains motor current measurements with 1,000 time-domain features per sample. For binary classification, motors are labeled as healthy (0) or faulty (1). The multi-class version has 14 categories including various bearing faults at different speeds, broken rotor bar conditions, and the healthy state.
+
+I applied standardization to ensure all features contribute equally:
+\begin{equation}
+x_{scaled} = \frac{x - \mu}{\sigma}
+\end{equation}
+
+The data was split 80-20 for training and testing, with shuffling to ensure random distribution.
+
+\section{Binary Classification Results}
+
+Both algorithms performed excellently on the binary task. Figure 1 shows the Naive Bayes confusion matrix with very few misclassifications, while Figure 2 shows the SVM confusion matrix with slightly better balanced performance between the two classes.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b1.png}
+\caption{Naive Bayes confusion matrix showing near-perfect binary classification.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b2.png}
+\caption{SVM confusion matrix demonstrating excellent separation between healthy and faulty motors.}
+\end{figure}
+
+Figures 3 and 4 display the ROC curves. Both curves hug the top-left corner, indicating excellent discrimination ability. SVM shows a slightly sharper rise, suggesting marginally better performance at various threshold settings.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b3.png}
+\caption{Naive Bayes ROC curve demonstrating strong class separation with AUC near 1.0.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b4.png}
+\caption{SVM ROC curve showing excellent discrimination ability across various thresholds.}
+\end{figure}
+
+The learning curves in Figures 5 and 6 reveal interesting differences in how the models learn. Naive Bayes reaches high accuracy quickly with a smooth learning curve since it simply estimates parameters from the data. SVM shows more fluctuation during training as it iteratively adjusts the decision boundary through gradient descent.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b5.png}
+\caption{Naive Bayes learning curve showing smooth convergence to high accuracy.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b6.png}
+\caption{SVM learning curve with training and validation accuracy over epochs.}
+\end{figure}
+
+Figures 7 and 8 show the loss curves. Naive Bayes has a steadily decreasing error rate, while SVM's hinge loss shows the characteristic pattern of margin-based learning with some oscillation before convergence.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b7.png}
+\caption{Naive Bayes loss trajectory showing steady decrease in error.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b8.png}
+\caption{SVM loss curve demonstrating margin-based optimization behavior.}
+\end{figure}
+
+The precision-recall curves in Figures 9 and 10 maintain high values across the entire range for both models, indicating they achieve good precision without sacrificing recall.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b9.png}
+\caption{Naive Bayes precision-recall curve showing balanced performance.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b10.png}
+\caption{SVM precision-recall curve maintaining high values across the range.}
+\end{figure}
+
+Figures 11 and 12 illustrate the sensitivity-specificity trade-off across different thresholds. The curves intersect at high values for both metrics, suggesting we can achieve both high true positive and low false positive rates.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b11.png}
+\caption{Naive Bayes sensitivity-specificity intersection showing optimal threshold points.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b12.png}
+\caption{SVM sensitivity-specificity trade-off across different decision thresholds.}
+\end{figure}
+
+Figures 13 and 14 summarize the final metrics at the 0.5 threshold. Both algorithms exceed 99\% on all measures, confirming excellent binary classification performance.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b13.png}
+\caption{Naive Bayes comprehensive metrics summary at threshold 0.5.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{b14.png}
+\caption{SVM metrics showing consistently high performance across all evaluation criteria.}
+\end{figure}
+
+\section{Multi-Class Results}
+
+The 14-class problem proved significantly more challenging. Figures 15 and 16 show the confusion matrices which reveal substantial misclassification, especially between similar fault types. Both models struggle with certain classes more than others.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m1.png}
+\caption{Naive Bayes 14-class confusion matrix showing varied performance across fault categories.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m2.png}
+\caption{SVM 14-class confusion matrix revealing substantial misclassification patterns.}
+\end{figure}
+
+The One-vs-Rest ROC curves in Figures 17 and 18 show mixed results. Some classes have curves approaching the top-left corner (good discrimination), while others stay closer to the diagonal (poor discrimination).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m3.png}
+\caption{Naive Bayes OvR ROC curves for all 14 fault classes.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m4.png}
+\caption{SVM OvR ROC curves revealing uneven discrimination ability across fault types.}
+\end{figure}
+
+Figures 19 and 20 show the learning progression for multi-class. Both models show lower accuracy compared to binary classification, and the gap between training and validation accuracy suggests some overfitting.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m5.png}
+\caption{Naive Bayes multi-class learning curve showing the increased difficulty.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m6.png}
+\caption{SVM multi-class accuracy growth over training epochs.}
+\end{figure}
+
+The loss curves in Figures 21 and 22 remain relatively high throughout training, reflecting the fundamental difficulty in separating all 14 classes with linear boundaries.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m7.png}
+\caption{Naive Bayes multi-class loss showing limited improvement.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m8.png}
+\caption{SVM training loss for 14-class problem remaining relatively high.}
+\end{figure}
+
+Figures 23 and 24 present the precision-recall curves for all classes. The wide variation indicates some fault types are much easier to identify than others.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m9.png}
+\caption{Naive Bayes precision-recall curves showing substantial variation across classes.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m10.png}
+\caption{SVM precision-recall curves for all 14 fault categories.}
+\end{figure}
+
+Figures 25 and 26 show the sensitivity-specificity relationships. While specificity remains generally high (low false positives), sensitivity varies dramatically between classes.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m11.png}
+\caption{Naive Bayes sensitivity-specificity trade-offs for multi-class problem.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m12.png}
+\caption{SVM sensitivity-specificity relationships across all fault categories.}
+\end{figure}
+
+Figures 27 and 28 summarize the overall multi-class metrics. The significantly lower scores compared to binary classification highlight the challenge of fine-grained fault discrimination.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m13.png}
+\caption{Naive Bayes multi-class summary metrics showing modest performance.}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\columnwidth]{m14.png}
+\caption{SVM multi-class performance metrics demonstrating the challenge of 14-class classification.}
+\end{figure}
+
+\section{Discussion}
+
+\subsection{Why Binary Works Better}
+The dramatic performance difference between binary and multi-class makes sense when you consider what we're asking the algorithms to do. Binary classification only requires distinguishing "something's wrong" from "everything's fine" - a much easier task. The multi-class problem demands identifying 14 distinct fault patterns, many of which produce similar current signatures.
+
+Both Naive Bayes and SVM use linear decision boundaries (in the original feature space for NB, and explicitly for linear SVM). When classes overlap significantly in the feature space, these linear boundaries struggle to separate them effectively.
+
+\subsection{Algorithm Comparison}
+Naive Bayes and SVM showed similar binary performance, but with different characteristics. Naive Bayes trained faster since it just estimates means and variances, while SVM required iterative optimization. However, SVM's margin-based approach provided slightly better generalization.
+
+For multi-class, both algorithms struggled similarly. Naive Bayes' independence assumption becomes more problematic with complex patterns, while SVM's One-vs-Rest approach treats each binary problem independently, potentially missing inter-class relationships.
+
+\subsection{Practical Insights}
+Building these algorithms from scratch taught me several lessons. First, preprocessing really matters - without standardization, convergence was much slower and less stable. Second, choosing learning rates for SVM required experimentation; too high caused divergence, too low meant slow training.
+
+The project also highlighted the importance of looking beyond accuracy. In multi-class, overall accuracy masked the fact that some classes were classified well while others failed completely. Per-class metrics revealed these hidden problems.
+
+\section{Conclusion}
+
+This project demonstrated both the strengths and limitations of classical machine learning algorithms for motor fault detection. Key findings include:
+
+\begin{itemize}
+\item Both Naive Bayes and SVM achieve over 99\% accuracy on binary classification
+\item Multi-class performance drops significantly (around 7\% accuracy) due to overlapping fault signatures
+\item SVM shows slightly better generalization than Naive Bayes in binary tasks
+\item Time-domain features alone are insufficient for fine-grained fault discrimination
+\end{itemize}
+
+However, the simplicity and interpretability of Naive Bayes and SVM make them valuable baselines for understanding the problem.
+
+\begin{thebibliography}{00}
+\bibitem{b1} T. M. Mitchell, \textit{Machine Learning}, McGraw-Hill, 1997. (For Naive Bayes probabilistic framework and Gaussian distribution logic).
+\bibitem{b2} C. M. Bishop, \textit{Pattern Recognition and Machine Learning}, Springer, 2006. (For SVM margin maximization and Hinge Loss implementation).
+\bibitem{b3} J. Brownlee, \textit{Probability for Machine Learning}, Machine Learning Mastery, 2019. (Standard student-friendly guide for Naive Bayes implementation from scratch).
+\bibitem{b4} GIFT University Dataset, ``Motor Signal Fault Data,'' 2024.
+\end{thebibliography}
+
+\end{document}

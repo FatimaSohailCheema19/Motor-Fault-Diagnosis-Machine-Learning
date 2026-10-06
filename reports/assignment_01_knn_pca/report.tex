@@ -1,0 +1,194 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{subfig} 
+\usepackage{float}  
+
+\begin{document}
+
+\title{Evaluation of Dimensionality Reduction on Distance-Based Classifiers: Comparing PCA and K-NN for Motor Fault Diagnostics}
+
+\author{\IEEEauthorblockN{Fatima Sohail}
+\IEEEauthorblockA{\textit{Department of Data Science} \\
+\textit{GIFT University}, Gujranwala, Pakistan \\
+231980004@gift.edu.pk}
+}
+
+\maketitle
+
+\begin{abstract}
+Modern industrial reliability relies heavily on predictive maintenance, with Motor Current Signature Analysis (MCSA) being a primary tool for detecting equipment failure. In this project, I performed a comparative analysis between a standard high-dimensional K-Nearest Neighbors (K-NN) model and a modified pipeline using Principal Component Analysis (PCA). The study utilizes a dataset of high-resolution temporal signals featuring 1,000 attributes per instance. The main goal was to test the trade-off between speed and diagnostic accuracy. My results show that while reducing the data to 100 principal components maintains a high accuracy of 98.05\%, it causes a drop in recall for rare fault categories. I discuss the mathematical reasons for this drop and suggest ways to handle the class imbalance common in industrial data.
+\end{abstract}
+
+\begin{IEEEkeywords}
+K-NN, Principal Component Analysis, Motor Fault Diagnosis, MCSA, Dimensionality Reduction, Class Imbalance.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Three-phase induction motors are essential to industrial plants, and their health is vital for keeping production lines running. Problems like stator defects or rotor bar breaks can cause expensive unplanned downtime. Because of this, Industry 4.0 now focuses on using smart data methods to predict failures rather than just reacting to them.
+
+
+
+Stator current analysis was chosen to be focussed because it is non-invasive and easy to implement. However, capturing these signals at high rates results in very large datasets. This high dimensionality makes it hard for distance-based models like K-NN to work. As we add more features, the distances between all points start looking the same, which makes it harder for the model to separate "Healthy" from "Faulty" states. This study looks at whether PCA can solve this "curse of dimensionality" without throwing away too much important information.
+
+\section{Mathematical Foundations}
+
+\subsection{Distance Metrics in High-Dimensional Spaces}
+For a sample with $d$ dimensions,  Euclidean distance was used to find the similarity between two points $x$ and $y$:
+\begin{equation}
+D(x, y) = \sqrt{\sum_{i=1}^{d} (x_i - y_i)^2}
+\end{equation}
+In the baseline test, $d=1000$. As we increase the number of features, the distances between samples start to converge. This "distance concentration" makes it difficult for a nearest-neighbor model to distinguish between classes, which eventually hurts the K-NN classification score.
+
+\subsection{Principal Component Analysis (PCA) Derivation}
+ PCA was used to project the data into a smaller space that still holds the most variance. Starting with a centered data matrix $\mathbf{X}$, the covariance matrix was found $\mathbf{S}$:
+\begin{equation}
+\mathbf{S} = \frac{1}{n-1} \mathbf{X}^T \mathbf{X}
+\end{equation}
+By using Singular Value Decomposition (SVD), the covariance matrix is broken down into $\mathbf{U \Sigma V^T}$. The eigenvectors in $\mathbf{V}$ show the directions of the most variance. I then calculated the reduced data $\mathbf{Z}$ using:
+\begin{equation}
+\mathbf{Z} = \mathbf{X} \mathbf{V}_k
+\end{equation}
+where I kept the top $k=100$ eigenvectors.
+
+\section{Proposed Diagnostic Methodology}
+
+\subsection{Preprocessing and Signal Normalization}
+The raw motor signals had some noise and DC offsets. To clean the data, a two-step processwas used. First, any non-numeric values were cleared. Then, Min-Max scaling was appllied to bring all 1,000 features into a range between $[0, 1]$:
+\begin{equation}
+X_{norm} = \frac{X - X_{min}}{X_{max} - X_{min} + \epsilon}
+\end{equation}
+For the PCA test, Z-score standardization was applied. This is important because PCA is very sensitive to the scale of the data; without this step, features with larger numbers would drown out the others.
+
+\subsection{Detailed Algorithmic Logic}
+I wrote custom Python code for the distance and metric logic to ensure the process was transparent. These steps are outlined in the algorithms below.
+
+\begin{algorithm}
+\caption{K-NN Classification Logic}
+\begin{algorithmic}[1]
+\STATE \textbf{Function} $predict\_knn(train\_data, test\_row, k)$:
+\STATE $test\_feat \leftarrow test\_row[:-1]$
+\STATE $distances \leftarrow []$
+\FOR{each $train\_row \in train\_data$}
+    \STATE $train\_feat \leftarrow train\_row[:-1]$
+    \STATE $d \leftarrow \sqrt{\sum (test\_feat - train\_feat)^2}$
+    \STATE $distances.append((train\_row[-1], d))$
+\ENDFOR
+\STATE Sort $distances$ by the smallest value
+\STATE $neighbors \leftarrow$ get labels of the top $k$
+\STATE $prediction \leftarrow$ pick the most common label
+\STATE $probability \leftarrow \frac{\text{Count}(label=1)}{k}$
+\RETURN $prediction, probability$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Metric Calculation Process}
+\begin{algorithmic}[1]
+\STATE \textbf{Function} $get\_metrics(y\_true, y\_probs, threshold)$:
+\STATE $y\_pred \leftarrow (y\_probs \geq threshold)$
+\STATE $TP \leftarrow \sum (y\_true=1 \land y\_pred=1)$
+\STATE $TN \leftarrow \sum (y\_true=0 \land y\_pred=0)$
+\STATE $Accuracy \leftarrow \frac{TP+TN}{Total}$
+\STATE $Precision \leftarrow \frac{TP}{TP+FP}$
+\STATE $Recall \leftarrow \frac{TP}{TP+FN}$
+\STATE $F1 \leftarrow \frac{2 \cdot Prec \cdot Rec}{Prec+Rec}$
+\RETURN \textit{Metric\_Results}
+\end{algorithmic}
+\end{algorithm}
+
+\section{Experimental Results and Analysis}
+
+\subsection{Confusion Matrix Interpretation}
+The results show that there is a trade-off between simplicity and detail. The raw K-NN model was better at catching faults, finding 29 true positives. The PCA model was faster but missed some subtle signal changes, only finding 26 true positives, as seen in Fig. 1.
+
+\begin{figure}[H]
+    \centering
+    \subfloat[Raw K-NN Results]{\includegraphics[width=0.24\textwidth]{k1.png}}
+    \hfill
+    \subfloat[PCA-K-NN Results]{\includegraphics[width=0.24\textwidth]{p1.png}}
+    \caption{Confusion Matrix Comparison. The Raw model has fewer False Negatives (22) compared to the PCA model (27).}
+\end{figure}
+
+\subsection{Comparative Metric Performance}
+The bar charts show that PCA helps the Precision (0.79) by cleaning up noise, but this also means the model is less sensitive to the actual fault signatures, as shown in Fig. 2.
+
+\begin{figure}[H]
+    \centering
+    \subfloat[Baseline Metrics]{\includegraphics[width=0.24\textwidth]{k5.png}}
+    \hfill
+    \subfloat[PCA Metrics]{\includegraphics[width=0.24\textwidth]{p5.png}}
+    \caption{While accuracy is similar, PCA (0.79) has better Precision than the Baseline (0.74), but Recall is lower.}
+\end{figure}
+
+\subsection{The Precision-Recall Trade-off}
+In factory settings, missing a fault is much worse than a false alarm. Looking at the Precision-Recall curves in Fig. 3, It was noticed that the PCA model's precision drops off much faster as we try to increase the recall.
+
+\begin{figure}[H]
+    \centering
+    \subfloat[Raw P-R Curve]{\includegraphics[width=0.24\textwidth]{k3.png}}
+    \hfill
+    \subfloat[PCA P-R Curve]{\includegraphics[width=0.24\textwidth]{p3.png}}
+    \caption{Precision-Recall curves. The PCA curve drops faster, showing it is harder to keep high recall in a smaller feature space.}
+\end{figure}
+
+\subsection{Global Performance: ROC and AUC}
+The ROC curves show how well the models separate the two classes. Both models performed well with AUC values around 0.90, which means they can effectively distinguish between a healthy and faulty motor.
+
+\begin{figure}[H]
+    \centering
+    \subfloat[Raw ROC]{\includegraphics[width=0.24\textwidth]{k2.png}}
+    \hfill
+    \subfloat[PCA ROC]{\includegraphics[width=0.24\textwidth]{p2.png}}
+    \caption{ROC Curves. Both models show good separation power with AUC values near 0.90.}
+\end{figure}
+
+\subsection{Threshold Optimization Analysis}
+It was found that the standard 0.5 threshold isn't always the best choice. For very important machinery, it might be better to lower the threshold to catch more faults, even if it creates more false alarms.
+
+\begin{figure}[H]
+    \centering
+    \subfloat[Raw Trade-off]{\includegraphics[width=0.24\textwidth]{k4.png}}
+    \hfill
+    \subfloat[PCA Trade-off]{\includegraphics[width=0.24\textwidth]{p4.png}}
+    \caption{Sensitivity-Specificity Trade-off. The Raw model (left) is more stable when I change the threshold.}
+\end{figure}
+
+\section{Computational Complexity Analysis}
+The biggest advantage that was noticed with PCA was the speed. Standard K-NN has a complexity of $O(N \cdot D)$. By cutting the features from 1,000 to 100, the distance math was reduced by 10 times. In the tests, the prediction time dropped from minutes to just seconds, which is perfect for real-time monitoring on small devices.
+
+\section{Discussion: The Industrial Perspective}
+Which model to use depends on the situation. In a high-risk environment, like a power plant, the higher recall of the raw K-NN is worth the extra wait. But in a factory with thousands of small motors, false alarms are annoying for maintenance teams. In those cases, the higher precision of the PCA-K-NN is likely the better way to go.
+
+\begin{table}[H]
+\caption{Final Results Comparison}
+\centering
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Metric} & \textbf{Raw K-NN} & \textbf{PCA-K-NN} & \textbf{Difference} \\ \midrule
+Accuracy        & 98.29\%           & 98.05\%           & -0.24\%             \\
+Recall          & 0.57              & 0.49              & -0.08               \\
+Precision       & 0.74              & 0.79              & +0.05               \\
+F1-Score        & 0.64              & 0.60              & -0.04               \\
+Specificity     & 1.00              & 1.00              & 0.00                \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusion}
+The project shows that PCA is great for making fault diagnosis faster, but it does come at the cost of some sensitivity. For critical machines, the standard K-NN is still safer. In the future, we'll try using SMOTE to fix the class balance and see if we can get the PCA recall higher.
+
+\begin{thebibliography}{00}
+\bibitem{b1} M. Bishop, \textit{Pattern Recognition and Machine Learning}, Springer, 2006.
+\bibitem{b2} K. S. Grewal, "PCA for Industrial Signal Processing," \textit{IEEE Sensors Journal}, 2022.
+\bibitem{b3} T. Hastie, \textit{The Elements of Statistical Learning}, 2009.
+\bibitem{b4} GIFT University Dataset, "Current Signature Dataset," 2024.
+\end{thebibliography}
+
+\end{document}

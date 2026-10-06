@@ -1,0 +1,167 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{subfig}
+\usepackage{float}
+
+\begin{document}
+
+\title{Developing a Custom Logistic Regression Framework for Motor Health Monitoring: A Comparative Study of Binary and Multi-Class Approaches}
+
+\author{\IEEEauthorblockN{Fatima Sohail}
+\IEEEauthorblockA{\textit{Department of Data Science} \\
+\textit{GIFT University}, Gujranwala, Pakistan \\
+231980004@gift.edu.pk}
+}
+
+\maketitle
+
+\begin{abstract}
+In industrial environments, unexpected motor failure can lead to serious operational losses. In this work, a Logistic Regression (LR) model was implemented entirely from scratch to analyze motor current signals for fault detection. The model was evaluated under two different settings: a binary classification task that separates healthy motors from faulty ones, and a challenging 14-class classification task aimed at identifying specific fault conditions. Each motor sample was represented using 1,000 time-domain features taken from current signal measurements. The experimental results indicate that although the binary classifier achieved an impressive accuracy of 98\%, its reliability was significantly influenced by class imbalance in the data. On the other hand, the multi-class model found it difficult to separate fault types with similar signal characteristics, leading to a relatively low macro F1-score of 0.23. This paper presents the mathematical formulation, implementation details, and a comparative analysis explaining the performance gap between binary and multi-class learning.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Logistic Regression Model, From-Scratch Implementation, Motor Fault Detection, Motor Current Signature Analysis, Binary Classification, Multi-Class Classification
+\end{IEEEkeywords}
+
+\section{Introduction}
+Induction motors are commonly used across many industrial applications, and any sudden failure can disrupt production processes and lead to considerable financial losses. From a data science viewpoint, identifying faults at an early stage is essential to reduce downtime and prevent severe operational issues. Logistic Regression (LR), despite being a simple and classical algorithm, is particularly useful because it produces probabilistic outputs rather than hard decisions, allowing engineers to assess risk levels instead of relying on binary judgments.
+
+This study focuses on Motor Current Signature Analysis (MCSA), where raw electrical current signals are analyzed to detect faults. Due to the temporal nature of the data, the dataset is complex and high-dimensional. Initially, a binary classification problem was explored to identify whether a motor is healthy or faulty. Later, this approach was extended using a One-vs-Rest (OvR) strategy to classify motors into 14 distinct fault categories.
+
+\section{Building the Model from Scratch}
+To gain a deeper understanding of the learning process, the Logistic Regression model was implemented manually without relying on machine learning libraries such as Scikit-Learn. This allowed direct control over gradient descent, weight updates, and numerical stability.
+
+\subsection{The Logit and Activation}
+The sigmoid activation function forms the foundation of the Logistic Regression model. It transforms linear outputs into probability values ranging between 0 and 1. However, large values of $z$ can cause numerical overflow due to the exponential term. To avoid this issue, a clipping strategy was applied before computing the sigmoid function.
+\begin{equation}
+\sigma(z) = \frac{1}{1 + e^{-z}}, \quad z = Xw + b
+\end{equation}
+
+[Image of a Sigmoid function curve]
+
+\subsection{Cost Optimization}
+Model learning was guided using the Binary Cross-Entropy loss function, which quantifies the difference between predicted probabilities and actual labels. During training, gradients with respect to the weights and bias were computed and used to update the parameters in the direction that minimizes the loss.
+\begin{equation}
+dw = \frac{1}{m} X^T (\hat{y} - y), \quad db = \frac{1}{m} \sum (\hat{y} - y)
+\end{equation}
+Here, $m$ denotes the total number of training samples.
+
+\subsection{The One-vs-Rest (OvR) Strategy}
+Logistic Regression is inherently designed for binary classification. To extend it to the 14-class problem, the One-vs-Rest approach was adopted. In this setup, 14 independent binary classifiers were trained, each responsible for recognizing one specific fault class against all others. During inference, the class with the highest predicted probability was selected.
+
+\section{Experimental Methodology}
+
+\subsection{Feature Preparation}
+Since raw current signals contain features with varying magnitudes, direct training can negatively affect convergence. To address this, feature standardization was applied by removing the mean and scaling by the standard deviation. This ensured that all 1,000 temporal features contributed evenly during optimization.
+
+\subsection{The Algorithm Workflow}
+Algorithm 1 outlines the custom training procedure implemented in Python. A learning rate $\alpha$ was used, and the optimization process was repeated for $n$ iterations to minimize the loss function.
+
+\begin{algorithm}
+\caption{My Custom LR Training Loop}
+\begin{algorithmic}[1]
+\STATE \textbf{Initialize:} $w = 0, b = 0$
+\FOR{$i=1$ to $n$}
+\STATE Calculate linear output: $z = Xw + b$
+\STATE Apply activation with clipping: $\hat{y} = \sigma(z)$
+\STATE Compute gradients for $w$ and $b$
+\STATE Update weights: $w = w - \text{lr} \cdot dw$
+\STATE Update bias: $b = b - \text{lr} \cdot db$
+\ENDFOR
+\RETURN weights and bias
+\end{algorithmic}
+\end{algorithm}
+
+\section{Binary Analysis Results}
+
+\subsection{Class Imbalance Issues}
+The binary classifier achieved an accuracy of 98\%, which initially appeared very strong. However, closer inspection revealed that the dataset was heavily imbalanced, with significantly more unhealthy samples than healthy ones. As a result, the model became biased toward predicting the majority class. As illustrated in Fig. 1, using a default threshold of 0.5 caused the model to miss most minority class instances.
+
+\begin{figure}[H]
+\centering
+\subfloat[My Binary Confusion Matrix]{\includegraphics[width=0.23\textwidth]{b1.png}}
+\hfill
+\subfloat[The ROC Curve]{\includegraphics[width=0.23\textwidth]{b2.png}}
+\caption{Binary results showing that accuracy alone is misleading when classes are imbalanced.}
+\end{figure}
+
+\subsection{Tuning the Threshold}
+A fixed probability threshold of 0.5 is not always suitable in real-world applications. By analyzing the Precision-Recall and threshold curves in Fig. 3 and Fig. 4, it became evident that adjusting the decision threshold significantly impacts model sensitivity. In industrial settings, it is often preferable to lower the threshold to avoid missing critical faults, even if it results in additional false positives.
+
+\begin{figure}[H]
+\centering
+\subfloat[Precision-Recall Curve]{\includegraphics[width=0.23\textwidth]{b3.png}}
+\hfill
+\subfloat[Threshold Intersection]{\includegraphics[width=0.23\textwidth]{b4.png}}
+\caption{How sensitivity and specificity change based on where we set the decision boundary.}
+\end{figure}
+
+\section{Multi-Class Analysis Results}
+
+\subsection{Complexity of 14 Classes}
+The transition from binary to 14-class classification significantly increased model difficulty. As shown in Fig. 5, the confusion matrix exhibits heavy misclassification among several fault types. The macro F1-score dropped to 0.23, indicating that the linear decision boundaries of Logistic Regression were insufficient to separate highly overlapping current signal patterns.
+
+\begin{figure}[H]
+\centering
+\subfloat[14-Class Confusion Matrix]{\includegraphics[width=0.23\textwidth]{m1.png}}
+\hfill
+\subfloat[Performance Summary]{\includegraphics[width=0.24\textwidth]{m4.png}}
+\caption{Multi-class metrics showing the struggle to separate 14 unique signal types.}
+\end{figure}
+
+\subsection{ROC and Sensitivity}
+The One-vs-Rest ROC curves shown in Fig. 7 appear close to diagonal lines for many classes, suggesting near-random discrimination. This further confirms that Logistic Regression, when applied directly to raw time-domain signals, lacks the expressive power required for complex fault classification without advanced feature engineering.
+
+\begin{figure}[H]
+\centering
+\subfloat[OvR ROC Curves]{\includegraphics[width=0.23\textwidth]{m2.png}}
+\hfill
+\subfloat[PR Trade-offs]{\includegraphics[width=0.23\textwidth]{m3.png}}
+\caption{Class-wise performance for all 14 motor conditions.}
+\end{figure}
+
+\section{Discussion and Student Perspective}
+This project highlighted an important lesson: high accuracy values can be misleading when evaluated in isolation. In the binary task, the model appeared nearly perfect but completely failed to recognize the minority class. This emphasized the importance of using metrics such as F1-score, recall, and specificity.
+
+For the multi-class task, the low macro scores suggest that raw temporal features are not ideal for linear models. In signal processing, frequency-domain transformations such as FFT are commonly used to expose meaningful fault patterns. Without such transformations, the model struggled to find clear decision boundaries among 14 fault conditions.
+
+\begin{figure}[H]
+\centering
+\subfloat[Binary Metrics Summary]{\includegraphics[width=0.23\textwidth]{b5.png}}
+\hfill
+\subfloat[Macro Decay Curve]{\includegraphics[width=0.23\textwidth]{m5.png}}
+\caption{Final comparison of how the two models behaved at the 0.5 threshold.}
+\end{figure}
+
+\begin{table}[H]
+\caption{My Final Performance Results}
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Metric} & \textbf{Binary (LR)} & \textbf{Multi-Class (LR)} \\ \midrule
+Overall Accuracy & 0.98                 & 0.46                        \\
+Macro Precision  & 0.00                 & 0.23                        \\
+Macro Recall     & 0.00                 & 0.23                        \\
+Macro F1-Score   & 0.00                 & 0.23                        \\
+Macro Specificity& 1.00                 & 0.77                        \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusion}
+Through this project, implementing Logistic Regression from scratch provided valuable insight into its mathematical foundations and practical limitations. While the model performed well as a baseline for binary classification, it proved insufficient for complex multi-class fault diagnosis using raw signal data. Future work will focus on incorporating non-linear feature extraction techniques and exploring alternative models to improve classification performance in the 14-class scenario.
+
+\begin{thebibliography}{00}
+\bibitem{b1} D. W. Hosmer, S. Lemeshow, and R. X. Sturdivant, \textit{Applied Logistic Regression}, 3rd ed., 2013.
+\bibitem{b2} D. G. Kleinbaum and M. Klein, \textit{Logistic Regression: A Self-Learning Text}, 2010.
+\bibitem{b3} GIFT University Dataset, ``Motor Signal Fault Data,'' 2024.
+\end{thebibliography}
+
+\end{document}
